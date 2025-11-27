@@ -1,0 +1,94 @@
+questions:
+- variable: strategy.mode
+  default: "time-slicing"
+  description: "选择 GPU 切分模式"
+  type: enum
+  options:
+    - "time-slicing"
+    - "mig-single"
+    - "mig-mixed"
+  label: "1. 核心模式 (Mode)"
+  group: "策略定义"
+
+- variable: strategy.configName
+  default: "custom-strategy"
+  description: "策略名称 (作为节点标签的值)"
+  type: string
+  label: "2. 策略名称 (Config Key)"
+  group: "策略定义"
+
+# --- Time Slicing ---
+- variable: timeSlicing.replicas
+  default: 4
+  type: int
+  min: 1
+  max: 48
+  label: "切分副本数 (Replicas)"
+  show_if: "strategy.mode=time-slicing"
+  group: "Time-Slicing 配置"
+
+# --- MIG Single ---
+- variable: mig.singleProfile
+  default: "1g.5gb"
+  type: enum
+  options: ["1g.5gb", "2g.10gb", "3g.20gb", "4g.20gb", "7g.40gb"]
+  label: "MIG 统一规格"
+  show_if: "strategy.mode=mig-single"
+  group: "MIG 配置"
+
+# --- MIG Mixed ---
+- variable: mig.mixed.gpu0
+  default: ""
+  description: "第 0 号 GPU 规格 (例如 1g.5gb)，留空则不配置"
+  type: string
+  label: "GPU-0 规格"
+  show_if: "strategy.mode=mig-mixed"
+  group: "MIG 混合配置 (Mixed)"
+
+- variable: mig.mixed.gpu1
+  default: ""
+  type: string
+  label: "GPU-1 规格"
+  show_if: "strategy.mode=mig-mixed"
+  group: "MIG 混合配置 (Mixed)"
+
+- variable: mig.mixed.gpu2
+  default: ""
+  type: string
+  label: "GPU-2 规格"
+  show_if: "strategy.mode=mig-mixed"
+  group: "MIG 混合配置 (Mixed)"
+
+- variable: mig.mixed.gpu3
+  default: ""
+  type: string
+  label: "GPU-3 规格"
+  show_if: "strategy.mode=mig-mixed"
+  group: "MIG 混合配置 (Mixed)"
+
+# --- 自动化与高危确认 ---
+- variable: automation.enabled
+  default: false
+  type: boolean
+  label: "启用全自动化 (Auto Apply)"
+  description: "开启后，将自动执行：1. 给节点打标签；2. 修改 ClusterPolicy 指向此配置。"
+  group: "危险操作 (Danger Zone)"
+
+- variable: automation.confirmDanger
+  default: false
+  type: boolean
+  label: "🛑【高危确认】我已知晓可能导致服务中断"
+  description: |
+    警告：
+    1. 此操作将修改全局 ClusterPolicy，触发 GPU 插件重启。
+    2. 若处于 MIG 模式，应用标签会导致 GPU 驱动重置，现有业务将被中断。
+    3. 请确保您清楚正在做什么。
+  show_if: "automation.enabled=true"
+  group: "危险操作 (Danger Zone)"
+
+- variable: automation.image
+  default: "bitnami/kubectl:latest"
+  type: string
+  label: "Kubectl 镜像"
+  show_if: "automation.enabled=true"
+  group: "危险操作 (Danger Zone)"

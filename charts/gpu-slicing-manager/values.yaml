@@ -1,0 +1,43 @@
+# 全局命名空间 (通常是 gpu-operator)
+namespace: gpu-operator
+
+# 策略配置
+strategy:
+  # 模式: "time-slicing", "mig-single", "mig-mixed"
+  mode: "time-slicing"
+  # 配置名称，对应 Node Label 的 Value
+  configName: "custom-strategy"
+
+# Time-Slicing 专属配置
+timeSlicing:
+  replicas: 4
+
+# MIG 专属配置
+mig:
+  # 统一模式下的规格
+  singleProfile: "1g.5gb"
+  # 混合模式下的每张卡规格 (支持4卡)
+  mixed:
+    gpu0: "1g.5gb"
+    gpu1: "3g.20gb"
+    gpu2: ""
+    gpu3: ""
+
+
+# 自动化体系 (打标签 + 改Policy)
+automation:
+  enabled: false
+  # 高危确认开关
+  confirmDanger: false
+  
+  # 节点选择器
+  nodeSelector:
+    nvidia.com/gpu.present: "true"
+
+  tolerations: []
+
+  # 执行 kubectl 的镜像
+  image: "bitnami/kubectl:latest"
+  
+  # ClusterPolicy 的名字
+  policyName: "cluster-policy"    

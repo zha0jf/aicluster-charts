@@ -1,0 +1,68 @@
+{{- if and .Values.automation.enabled .Values.automation.confirmDanger }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpu-label-cleaner
+  namespace: {{ .Values.namespace }}
+  annotations:
+    # 核心：定义这是一个卸载前的 Hook
+    "helm.sh/hook": pre-delete
+    # 策略：运行前先清理旧 Job，运行成功后删除本 Job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "-5"
+spec:
+  template:
+    spec:
+      # 复用之前定义的 ServiceAccount，确保有权限执行 kubectl label
+      serviceAccountName: gpu-labeler-sa
+      restartPolicy: OnFailure
+      
+      # 容忍度设置：虽然 Cleanup Job 不需要运行在 GPU 节点上，
+      # 但如果集群全是污点节点，添加容忍度可防止 Pending
+      {{- with .Values.automation.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      containers:
+      - name: cleaner
+        # 1. 使用 values.yaml 中的镜像变量
+        image: {{ .Values.automation.image }}
+        imagePullPolicy: IfNotPresent
+        
+        # 2. 将 Helm 变量注入为容器环境变量，避免 Shell 脚本中出现复杂的模板语法
+        env:
+          - name: TARGET_CONFIG
+            value: {{ .Values.strategy.configName | quote }}
+            
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Starting Pre-Delete Cleanup Hook..."
+            echo "Target Config Name: $TARGET_CONFIG"
+
+            # 检查 kubectl 是否存在 (防止用户使用了不带 kubectl 的基础镜像)
+            if ! command -v kubectl &> /dev/null; then
+                echo "Error: 'kubectl' command not found in image: {{ .Values.automation.image }}"
+                echo "Please update values.yaml -> automation.image to a generic image containing kubectl (e.g., bitnami/kubectl)."
+                exit 1
+            fi
+
+            # 定义需要清理的 Label Key
+            L_DP="nvidia.com/device-plugin.config"
+            L_MIG="nvidia.com/mig.config"
+
+            # 3. 精确清理逻辑
+            # 使用 label selector (-l key=value) 仅选中那些指向当前配置的节点
+            
+            echo "Cleaning up Device Plugin labels..."
+            # 查找标签值为 $TARGET_CONFIG 的节点，并删除该标签
+            kubectl label nodes -l "$L_DP=$TARGET_CONFIG" $L_DP- --overwrite || true
+
+            echo "Cleaning up MIG labels..."
+            # 查找标签值为 $TARGET_CONFIG 的节点，并删除该标签
+            kubectl label nodes -l "$L_MIG=$TARGET_CONFIG" $L_MIG- --overwrite || true
+
+            echo "Cleanup successfully completed. Manual labels pointing to other configs were preserved."
+{{- end }}

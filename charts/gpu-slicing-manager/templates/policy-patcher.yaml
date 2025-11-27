@@ -1,0 +1,90 @@
+{{- if and .Values.automation.enabled .Values.automation.confirmDanger }}
+# ==================================================================
+# 1. 账号与权限 (权重 -5：确保在 Job 启动前创建)
+# ==================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-patcher-sa
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"  # <--- 关键修改：优先创建
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-patcher-role
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"  # <--- 关键修改
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: ["nvidia.com"]
+    resources: ["clusterpolicies"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-patcher-binding
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"  # <--- 关键修改
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+subjects:
+  - kind: ServiceAccount
+    name: policy-patcher-sa
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: policy-patcher-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ==================================================================
+# 2. 执行任务 (权重 0：权限就绪后执行)
+# ==================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: policy-patcher-job
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"   # <--- 标准权重
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: policy-patcher-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: patcher
+        image: {{ .Values.automation.image }}
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Starting Policy Patch..."
+            TARGET="{{ .Values.automation.policyName }}"
+            CONFIG_NAME="gpu-slicing-config"
+            
+            # 增加重试逻辑，防止网络抖动
+            for i in {1..5}; do
+              echo "Attempt $i: Patching ClusterPolicy '$TARGET'..."
+              kubectl patch clusterpolicy $TARGET \
+                --type=merge \
+                -p "{\"spec\": {\"devicePlugin\": {\"config\": {\"name\": \"$CONFIG_NAME\", \"default\": \"\"}}}}"
+              
+              if [ $? -eq 0 ]; then
+                echo "✅ ClusterPolicy patched successfully."
+                exit 0
+              fi
+              sleep 2
+            done
+            
+            echo "❌ Failed to patch ClusterPolicy after retries."
+            exit 1
+{{- end }}

@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # 建议在 ClusterPolicy 中引用此名称
+  name: gpu-slicing-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app: gpu-slicing-config
+data:
+  # 配置文件名，对应 Node Label 的值
+  {{ .Values.strategy.configName }}: |-
+    version: v1
+    
+    {{- if eq .Values.strategy.mode "time-slicing" }}
+    # ==========================================
+    # 模式: Time-Slicing
+    # 适用组件: NVIDIA Device Plugin
+    # ==========================================
+    sharing:
+      timeSlicing:
+        resources:
+        - name: nvidia.com/gpu
+          replicas: {{ .Values.timeSlicing.replicas }}
+    # 在 Time-Slicing 模式下，通常不需要 MIG 配置，
+    # 但如果为了防止报错，可以不写 mig-configs，或者留空。
+
+    {{- else if eq .Values.strategy.mode "mig-single" }}
+    # ==========================================
+    # 模式: MIG Single
+    # ==========================================
+    
+    # 1. 给 Device Plugin 看的配置
+    # 告诉插件 MIG 策略是 "single" (所有 GPU 统一配置)
+    flags:
+      migStrategy: "single"
+
+    # 2. 给 MIG Manager 看的配置
+    # 定义具体的物理切分规则
+    mig-configs:
+      {{ .Values.strategy.configName }}:
+        - devices: [all]
+          mig-enabled: true
+          mig-devices:
+            "{{ .Values.mig.singleProfile }}": "all"
+
+    {{- else if eq .Values.strategy.mode "mig-mixed" }}
+    # ==========================================
+    # 模式: MIG Mixed
+    # ==========================================
+
+    # 1. 给 Device Plugin 看的配置
+    # 告诉插件 MIG 策略是 "mixed" (允许不同 GPU 不同配置)
+    flags:
+      migStrategy: "mixed"
+
+    # 2. 给 MIG Manager 看的配置
+    # 定义具体的物理切分规则
+    mig-configs:
+      {{ .Values.strategy.configName }}:
+        {{- if .Values.mig.mixed.gpu0 }}
+        - devices: [0]
+          mig-enabled: true
+          mig-devices:
+            "{{ .Values.mig.mixed.gpu0 }}": "all"
+        {{- end }}
+        {{- if .Values.mig.mixed.gpu1 }}
+        - devices: [1]
+          mig-enabled: true
+          mig-devices:
+            "{{ .Values.mig.mixed.gpu1 }}": "all"
+        {{- end }}
+        {{- if .Values.mig.mixed.gpu2 }}
+        - devices: [2]
+          mig-enabled: true
+          mig-devices:
+            "{{ .Values.mig.mixed.gpu2 }}": "all"
+        {{- end }}
+        {{- if .Values.mig.mixed.gpu3 }}
+        - devices: [3]
+          mig-enabled: true
+          mig-devices:
+            "{{ .Values.mig.mixed.gpu3 }}": "all"
+        {{- end }}
+    {{- end }}
