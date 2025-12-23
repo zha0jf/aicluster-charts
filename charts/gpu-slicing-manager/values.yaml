@@ -37,7 +37,7 @@ automation:
   tolerations: []
 
   # 执行 kubectl 的镜像
-  image: "bitnami/kubectl:latest"
+  image: "docker.1ms.run/bitnami/kubectl:latest"
   
   # ClusterPolicy 的名字
   policyName: "cluster-policy"    

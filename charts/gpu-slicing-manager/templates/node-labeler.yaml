@@ -48,6 +48,7 @@ spec:
       containers:
       - name: labeler
         image: {{ .Values.automation.image }}
+        imagePullPolicy: IfNotPresent
         command:
           - /bin/sh
           - -c

@@ -2,6 +2,6 @@ apiVersion: v2
 name: gpu-slicing-manager
 description: NVIDIA GPU 分片策略管理器 (支持 Time-Slicing 与 MIG 混合模式)
 type: application
-version: 3.1.0
+version: 3.1.1
 appVersion: "1.0"
 kubeVersion: ">=1.19.0"
