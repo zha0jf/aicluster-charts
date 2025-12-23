@@ -3,6 +3,17 @@ entries:
   gpu-slicing-manager:
   - apiVersion: v2
     appVersion: "1.0"
+    created: "2025-12-23T09:27:02.311848366Z"
+    description: NVIDIA GPU 分片策略管理器 (支持 Time-Slicing 与 MIG 混合模式)
+    digest: bc20f7e15caccdd46efc9dd5646aacd7654ad2fb68f3c72a5bd9288327c4f877
+    kubeVersion: '>=1.19.0'
+    name: gpu-slicing-manager
+    type: application
+    urls:
+    - https://github.com/zha0jf/aicluster-charts/releases/download/gpu-slicing-manager-3.1.1/gpu-slicing-manager-3.1.1.tgz
+    version: 3.1.1
+  - apiVersion: v2
+    appVersion: "1.0"
     created: "2025-11-27T08:08:17.777726926Z"
     description: NVIDIA GPU 分片策略管理器 (支持 Time-Slicing 与 MIG 混合模式)
     digest: 18074191fe6bd4e705c9d8d559105440854faf3d0aa4dd6f44014274690ce0c1
@@ -12,4 +23,4 @@ entries:
     urls:
     - https://github.com/zha0jf/aicluster-charts/releases/download/gpu-slicing-manager-3.1.0/gpu-slicing-manager-3.1.0.tgz
     version: 3.1.0
-generated: "2025-11-27T08:08:17.777754547Z"
+generated: "2025-12-23T09:27:02.311857063Z"
